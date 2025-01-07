@@ -18,6 +18,7 @@ public class Scanner {
     private int line = 1;
 
     private static final Map<String, TokenType> keywords;
+
     static {
         keywords = new HashMap<>();
         keywords.put("and", TokenType.AND);
@@ -105,6 +106,8 @@ public class Scanner {
                     while (peek() != '\n' && !isAtEnd()) {
                         advance();
                     }
+                } else if (match('*')) {
+                    multilineComment();
                 } else {
                     addToken(TokenType.SLASH);
                 }
@@ -166,11 +169,9 @@ public class Scanner {
         // Look for fractional part.
         if (peek() == '.' && isDigit(peekNext())) {
             // Consume the '.'
-            advance();
-
-            while (isDigit(peek())) {
+            do {
                 advance();
-            }
+            } while (isDigit(peek()));
         }
 
         // TODO: Maybe implement own parser for numbers.
@@ -190,6 +191,35 @@ public class Scanner {
         }
 
         addToken(type);
+    }
+
+    private void multilineComment() {
+        int nestedCount = 1;
+
+        while (nestedCount > 0 && !isAtEnd()) {
+            if (peek() == '/' && peekNext() == '*') {
+                // Found another beginning of multiline comment: Increase nested level
+                advance(); // Consume '/'
+                advance(); // Consume '*'
+                nestedCount++;
+            } else if (peek() == '*' && peekNext() == '/') {
+                // End of multiline comment: Decrease nesting level
+                advance(); // Consume '*'
+                advance(); // Consume '/'
+                nestedCount--;
+            } else {
+                // Regular character: Check for newline and advance
+                if (peek() == '\n') {
+                    line++;
+                }
+                advance();
+            }
+        }
+
+        // If we reach the end without finding */, it's an unterminated comment
+        if (nestedCount > 0) {
+            Lox.error(line, "Unterminated multiline comment.");
+        }
     }
 
     private boolean match(char expected) {
